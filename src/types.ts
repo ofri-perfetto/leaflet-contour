@@ -15,7 +15,8 @@ export interface DemTile {
   data: Float32Array;
 }
 export interface TransferrableDemTile extends DemTile, IsTransferrable {}
-/** A rendered contour tile */
+
+/** A rendered contour tile (legacy - for MapLibre compatibility) */
 export interface ContourTile {
   /** Encoded mapbox vector tile bytes */
   arrayBuffer: ArrayBuffer;
@@ -23,6 +24,16 @@ export interface ContourTile {
 export interface TransferrableContourTile
   extends ContourTile,
     IsTransferrable {}
+
+/** Options for HeightTile processing */
+export interface HeightTileOptions {
+  /** Factor to scale elevation (e.g., 3.28084 for meters to feet) */
+  multiplier?: number;
+  /** Use lower zoom tiles (reduces requests, may reduce quality) */
+  overzoom?: number;
+  /** Subsample tiles below this resolution for smoother output */
+  subsampleBelow?: number;
+}
 
 export interface FetchResponse {
   data: Blob;

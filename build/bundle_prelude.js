@@ -18,11 +18,16 @@ function define(_, chunk) {
 
     var sharedChunk = {};
     shared(sharedChunk);
-    mlcontour = chunk(sharedChunk);
+    mlcontour = {};
+    chunk(mlcontour, sharedChunk);
     if (typeof window !== "undefined") {
       mlcontour.workerUrl = window.URL.createObjectURL(
         new Blob([workerBundleString], { type: "text/javascript" })
       );
+      // Expose exports directly on window for convenience
+      Object.keys(mlcontour).forEach(function(key) {
+        window[key] = mlcontour[key];
+      });
     }
   }
 }
