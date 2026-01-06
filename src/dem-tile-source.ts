@@ -101,7 +101,9 @@ export class DemTileSource {
       maxZoom,
       timeoutMs,
       actor,
-      tms:options.tms || false
+      tms: options.tms || false,
+      subdomains: this.subdomains,
+      zoomOffset: this.zoomOffset,
     });
   }
 

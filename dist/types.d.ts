@@ -125,18 +125,28 @@ export interface DemManager {
 export type GetTileFunction = (url: string, abortController: AbortController) => Promise<FetchResponse>;
 export type DecodeImageFunction = (blob: Blob, encoding: Encoding, abortController: AbortController) => Promise<DemTile>;
 export type DemManagerRequiredInitializationParameters = {
+    /** URL pattern with {z}, {x}, {y} placeholders, and optionally {s} for subdomains */
     demUrlPattern: string;
+    /** Number of tiles to cache */
     cacheSize: number;
+    /** DEM encoding scheme */
     encoding: Encoding;
+    /** Maximum zoom level of DEM tiles */
     maxZoom: number;
+    /** Request timeout in milliseconds */
     timeoutMs: number;
+    /** If true, inverses Y axis numbering for tiles (TMS) */
     tms: boolean;
+    /** Subdomains for the tile URL (e.g., ['a', 'b', 'c']) */
+    subdomains?: string[];
+    /** Zoom offset to apply */
+    zoomOffset?: number;
 };
 export type DemManagerInitizlizationParameters = DemManagerRequiredInitializationParameters & {
     decodeImage?: DecodeImageFunction;
     getTile?: GetTileFunction;
     actor?: Actor<WorkerDispatch>;
 };
-export type InitMessage = DemManagerRequiredInitializationParameters & {
+export type InitMessage = Omit<DemManagerInitizlizationParameters, 'decodeImage' | 'getTile' | 'actor'> & {
     managerId: number;
 };

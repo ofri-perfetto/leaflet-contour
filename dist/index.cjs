@@ -1934,10 +1934,7 @@ class LocalDemManager {
         this.fetchAndParseTile = (z, x, y, abortController, timer) => {
             // eslint-disable-next-line @typescript-eslint/no-this-alias
             const self = this;
-            const url = this.demUrlPattern
-                .replace("{z}", z.toString())
-                .replace("{x}", x.toString())
-                .replace("{y}", y.toString());
+            const url = this.getTileUrl(z, x, y);
             timer === null || timer === void 0 ? void 0 : timer.useTile(url);
             return this.parsedCache.get(url, (_, childAbortController) => __awaiter(this, void 0, void 0, function* () {
                 const response = yield self.fetchTile(z, x, y, childAbortController, timer);
@@ -1958,14 +1955,30 @@ class LocalDemManager {
         this.encoding = options.encoding;
         this.maxZoom = options.maxZoom;
         this.tms = options.tms;
+        this.subdomains = options.subdomains || ["a", "b", "c"];
+        this.zoomOffset = options.zoomOffset || 0;
         this.decodeImage = options.decodeImage || defaultDecoder;
         this.getTile = options.getTile || defaultGetTile;
     }
-    fetchTile(z, x, y, parentAbortController, timer) {
-        const url = this.demUrlPattern
-            .replace("{z}", z.toString())
+    /**
+     * Build tile URL with subdomain rotation and TMS support.
+     */
+    getTileUrl(z, x, y) {
+        // Apply zoom offset
+        const zoom = z + this.zoomOffset;
+        // Apply TMS y-flip if needed
+        const tileY = this.tms ? Math.pow(2, zoom) - 1 - y : y;
+        // Select subdomain using simple hash
+        const subdomainIndex = (x + y) % this.subdomains.length;
+        const subdomain = this.subdomains[subdomainIndex];
+        return this.demUrlPattern
+            .replace("{z}", zoom.toString())
             .replace("{x}", x.toString())
-            .replace("{y}", y.toString());
+            .replace("{y}", tileY.toString())
+            .replace("{s}", subdomain);
+    }
+    fetchTile(z, x, y, parentAbortController, timer) {
+        const url = this.getTileUrl(z, x, y);
         timer === null || timer === void 0 ? void 0 : timer.useTile(url);
         return this.tileCache.get(url, (_, childAbortController) => {
             timer === null || timer === void 0 ? void 0 : timer.fetchTile(url);
@@ -16777,7 +16790,9 @@ class DemTileSource {
             maxZoom,
             timeoutMs,
             actor,
-            tms: options.tms || false
+            tms: options.tms || false,
+            subdomains: this.subdomains,
+            zoomOffset: this.zoomOffset,
         });
     }
     /**

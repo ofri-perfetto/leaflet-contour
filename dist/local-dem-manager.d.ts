@@ -13,11 +13,17 @@ export declare class LocalDemManager implements DemManager {
     encoding: Encoding;
     maxZoom: number;
     tms: boolean;
+    subdomains: string[];
+    zoomOffset: number;
     timeoutMs: number;
     loaded: Promise<void>;
     decodeImage: DecodeImageFunction;
     getTile: GetTileFunction;
     constructor(options: DemManagerInitizlizationParameters);
+    /**
+     * Build tile URL with subdomain rotation and TMS support.
+     */
+    private getTileUrl;
     fetchTile(z: number, x: number, y: number, parentAbortController: AbortController, timer?: Timer): Promise<FetchResponse>;
     fetchAndParseTile: (z: number, x: number, y: number, abortController: AbortController, timer?: Timer) => Promise<DemTile>;
     fetchDem(z: number, x: number, y: number, options: IndividualContourTileOptions, abortController: AbortController, timer?: Timer): Promise<HeightTile>;

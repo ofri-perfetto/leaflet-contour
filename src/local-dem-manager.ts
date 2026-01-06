@@ -45,7 +45,9 @@ export class LocalDemManager implements DemManager {
   demUrlPattern: string;
   encoding: Encoding;
   maxZoom: number;
-  tms:boolean;
+  tms: boolean;
+  subdomains: string[];
+  zoomOffset: number;
   timeoutMs: number;
   loaded = Promise.resolve();
   decodeImage: DecodeImageFunction;
@@ -60,8 +62,31 @@ export class LocalDemManager implements DemManager {
     this.encoding = options.encoding;
     this.maxZoom = options.maxZoom;
     this.tms = options.tms;
+    this.subdomains = options.subdomains || ["a", "b", "c"];
+    this.zoomOffset = options.zoomOffset || 0;
     this.decodeImage = options.decodeImage || defaultDecodeImage;
     this.getTile = options.getTile || defaultGetTile;
+  }
+
+  /**
+   * Build tile URL with subdomain rotation and TMS support.
+   */
+  private getTileUrl(z: number, x: number, y: number): string {
+    // Apply zoom offset
+    const zoom = z + this.zoomOffset;
+
+    // Apply TMS y-flip if needed
+    const tileY = this.tms ? Math.pow(2, zoom) - 1 - y : y;
+
+    // Select subdomain using simple hash
+    const subdomainIndex = (x + y) % this.subdomains.length;
+    const subdomain = this.subdomains[subdomainIndex];
+
+    return this.demUrlPattern
+      .replace("{z}", zoom.toString())
+      .replace("{x}", x.toString())
+      .replace("{y}", tileY.toString())
+      .replace("{s}", subdomain);
   }
 
   fetchTile(
@@ -71,10 +96,7 @@ export class LocalDemManager implements DemManager {
     parentAbortController: AbortController,
     timer?: Timer,
   ): Promise<FetchResponse> {
-    const url = this.demUrlPattern
-      .replace("{z}", z.toString())
-      .replace("{x}", x.toString())
-      .replace("{y}", y.toString());
+    const url = this.getTileUrl(z, x, y);
     timer?.useTile(url);
     return this.tileCache.get(
       url,
@@ -90,6 +112,7 @@ export class LocalDemManager implements DemManager {
       parentAbortController,
     );
   }
+
   fetchAndParseTile = (
     z: number,
     x: number,
@@ -99,10 +122,7 @@ export class LocalDemManager implements DemManager {
   ): Promise<DemTile> => {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
-    const url = this.demUrlPattern
-      .replace("{z}", z.toString())
-      .replace("{x}", x.toString())
-      .replace("{y}", y.toString());
+    const url = this.getTileUrl(z, x, y);
 
     timer?.useTile(url);
 
