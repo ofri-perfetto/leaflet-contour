@@ -32,7 +32,7 @@
       var demSource = new mlcontour.DemSource({
         url: "https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png",
         encoding: "terrarium",
-        maxzoom: 13,
+        maxZoom: 13,
       });
 
       // calls maplibregl.addProtocol for the shared cache and contour protocols
@@ -51,7 +51,7 @@
               type: "raster-dem",
               encoding: "terrarium",
               tiles: [demSource.sharedDemProtocolUrl], // share cached DEM tiles with contour layer
-              maxzoom: 13,
+              maxZoom: 13,
               tileSize: 256,
             },
             contours: {
@@ -73,7 +73,7 @@
                   contourLayer: "contours",
                 }),
               ],
-              maxzoom: 16,
+              maxZoom: 16,
             },
           },
           layers: [

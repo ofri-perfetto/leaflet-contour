@@ -32,112 +32,6 @@ class RemoteDemManager {
     }
 }
 
-/**
- * Shared source for DEM tiles that can be used by multiple layers.
- * Handles fetching, caching, and parsing of elevation data.
- */
-class DemTileSource {
-    constructor(options) {
-        this.timingCallbacks = [];
-        const { url, encoding = "terrarium", maxzoom = 12, cacheSize = 100, timeoutMs = 10000, worker = true, actor, } = options;
-        this.url = url;
-        this.encoding = encoding;
-        this.maxzoom = maxzoom;
-        const ManagerClass = worker ? RemoteDemManager : LocalDemManager;
-        this.manager = new ManagerClass({
-            demUrlPattern: url,
-            cacheSize,
-            encoding,
-            maxzoom,
-            timeoutMs,
-            actor,
-        });
-    }
-    /**
-     * Wait for the manager to be ready (worker initialized).
-     */
-    get loaded() {
-        return this.manager.loaded;
-    }
-    /**
-     * Register a callback to receive timing information for each tile request.
-     */
-    onTiming(callback) {
-        this.timingCallbacks.push(callback);
-    }
-    /**
-     * Fetch and parse a single DEM tile.
-     */
-    getDemTile(z, x, y, abortController) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.manager.fetchAndParseTile(z, x, y, abortController);
-        });
-    }
-    /**
-     * Fetch a DEM tile and convert it to a HeightTile.
-     * Supports overzoom for using lower-resolution tiles at higher zoom levels.
-     */
-    getHeightTile(z, x, y, options, abortController) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const zoom = Math.min(z - (options.overzoom || 0), this.maxzoom);
-            const subZ = z - zoom;
-            const div = 1 << subZ;
-            const newX = Math.floor(x / div);
-            const newY = Math.floor(y / div);
-            const tile = yield this.manager.fetchAndParseTile(zoom, newX, newY, abortController);
-            return HeightTile.fromRawDem(tile).split(subZ, x % div, y % div);
-        });
-    }
-    /**
-     * Fetch a HeightTile with all 8 neighbors for seamless contour generation.
-     * The returned HeightTile is a virtual tile that combines the center tile
-     * with its neighbors to avoid edge artifacts.
-     */
-    getHeightTileWithNeighbors(z, x, y, options, abortController, timer) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
-            const max = 1 << z;
-            const neighborPromises = [];
-            // Fetch 3x3 grid of tiles (center + 8 neighbors)
-            for (let iy = y - 1; iy <= y + 1; iy++) {
-                for (let ix = x - 1; ix <= x + 1; ix++) {
-                    neighborPromises.push(iy < 0 || iy >= max
-                        ? undefined
-                        : this.getHeightTile(z, (ix + max) % max, // Wrap X coordinate
-                        iy, options, abortController));
-                }
-            }
-            const neighbors = yield Promise.all(neighborPromises);
-            let virtualTile = HeightTile.combineNeighbors(neighbors);
-            if (!virtualTile) {
-                return undefined;
-            }
-            // Subsample for smoother contours at high zoom levels
-            const subsampleBelow = (_a = options.subsampleBelow) !== null && _a !== void 0 ? _a : 100;
-            if (virtualTile.width >= subsampleBelow) {
-                virtualTile = virtualTile.materialize(2);
-            }
-            else {
-                while (virtualTile.width < subsampleBelow) {
-                    virtualTile = virtualTile.subsamplePixelCenters(2).materialize(2);
-                }
-            }
-            // Apply averaging and scaling
-            virtualTile = virtualTile
-                .averagePixelCentersToGrid()
-                .scaleElevation((_b = options.multiplier) !== null && _b !== void 0 ? _b : 1)
-                .materialize(1);
-            return virtualTile;
-        });
-    }
-}
-/**
- * Factory function to create a DemTileSource.
- */
-function demTileSource(options) {
-    return new DemTileSource(options);
-}
-
 function getDefaultExportFromCjs (x) {
 	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
 }
@@ -14666,6 +14560,146 @@ function requireLeafletSrc () {
 
 var leafletSrcExports = requireLeafletSrc();
 var L$1 = /*@__PURE__*/getDefaultExportFromCjs(leafletSrcExports);
+
+/**
+ * Shared source for DEM tiles that can be used by multiple layers.
+ * Handles fetching, caching, and parsing of elevation data.
+ */
+class DemTileSource {
+    constructor(url, options) {
+        this.timingCallbacks = [];
+        const { zoomOffset = 0, minZoom = 0, tileSize = 256, encoding = "terrarium", maxZoom = 12, cacheSize = 100, timeoutMs = 10000, worker = true, actor, } = options;
+        this.zoomOffset = zoomOffset;
+        this.tileSize = tileSize;
+        this.url = url;
+        this.encoding = encoding;
+        this.minZoom = minZoom;
+        this.maxZoom = maxZoom;
+        // detecting retina displays, adjusting tileSize and zoom levels
+        if (options.detectRetina && leafletSrcExports.Browser.retina && maxZoom > 0) {
+            if (this.tileSize instanceof leafletSrcExports.Point) {
+                this.tileSize = leafletSrcExports.point(Math.floor(this.tileSize.x / 2), Math.floor(this.tileSize.y / 2));
+            }
+            else {
+                this.tileSize = Math.floor(this.tileSize / 2);
+            }
+            if (!options.zoomReverse) {
+                this.zoomOffset++;
+                this.maxZoom = Math.max(this.minZoom, this.maxZoom - 1);
+            }
+            else {
+                this.zoomOffset--;
+                this.minZoom = Math.min(this.maxZoom, this.minZoom + 1);
+            }
+            this.minZoom = Math.max(0, this.minZoom);
+        }
+        else if (!options.zoomReverse) {
+            // make sure maxZoom is gte minZoom
+            this.maxZoom = Math.max(this.minZoom, this.maxZoom);
+        }
+        else {
+            // make sure minZoom is lte maxZoom
+            this.minZoom = Math.min(this.maxZoom, this.minZoom);
+        }
+        if (typeof options.subdomains === 'string') {
+            this.subdomains = options.subdomains.split('');
+        }
+        // this.on('tileunload', this._onTileRemove);
+        const ManagerClass = worker ? RemoteDemManager : LocalDemManager;
+        this.manager = new ManagerClass({
+            demUrlPattern: url,
+            cacheSize,
+            encoding,
+            maxZoom,
+            timeoutMs,
+            actor,
+            tms: options.tms || false
+        });
+    }
+    /**
+     * Wait for the manager to be ready (worker initialized).
+     */
+    get loaded() {
+        return this.manager.loaded;
+    }
+    /**
+     * Register a callback to receive timing information for each tile request.
+     */
+    onTiming(callback) {
+        this.timingCallbacks.push(callback);
+    }
+    /**
+     * Fetch and parse a single DEM tile.
+     */
+    getDemTile(z, x, y, abortController) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.manager.fetchAndParseTile(z, x, y, abortController);
+        });
+    }
+    /**
+     * Fetch a DEM tile and convert it to a HeightTile.
+     * Supports overzoom for using lower-resolution tiles at higher zoom levels.
+     */
+    getHeightTile(z, x, y, options, abortController) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const zoom = Math.min(z - (options.overzoom || 0), this.maxZoom);
+            const subZ = z - zoom;
+            const div = 1 << subZ;
+            const newX = Math.floor(x / div);
+            const newY = Math.floor(y / div);
+            const tile = yield this.manager.fetchAndParseTile(zoom, newX, newY, abortController);
+            return HeightTile.fromRawDem(tile).split(subZ, x % div, y % div);
+        });
+    }
+    /**
+     * Fetch a HeightTile with all 8 neighbors for seamless contour generation.
+     * The returned HeightTile is a virtual tile that combines the center tile
+     * with its neighbors to avoid edge artifacts.
+     */
+    getHeightTileWithNeighbors(z, x, y, options, abortController, timer) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            const max = 1 << z;
+            const neighborPromises = [];
+            // Fetch 3x3 grid of tiles (center + 8 neighbors)
+            for (let iy = y - 1; iy <= y + 1; iy++) {
+                for (let ix = x - 1; ix <= x + 1; ix++) {
+                    neighborPromises.push(iy < 0 || iy >= max
+                        ? undefined
+                        : this.getHeightTile(z, (ix + max) % max, // Wrap X coordinate
+                        iy, options, abortController));
+                }
+            }
+            const neighbors = yield Promise.all(neighborPromises);
+            let virtualTile = HeightTile.combineNeighbors(neighbors);
+            if (!virtualTile) {
+                return undefined;
+            }
+            // Subsample for smoother contours at high zoom levels
+            const subsampleBelow = (_a = options.subsampleBelow) !== null && _a !== void 0 ? _a : 100;
+            if (virtualTile.width >= subsampleBelow) {
+                virtualTile = virtualTile.materialize(2);
+            }
+            else {
+                while (virtualTile.width < subsampleBelow) {
+                    virtualTile = virtualTile.subsamplePixelCenters(2).materialize(2);
+                }
+            }
+            // Apply averaging and scaling
+            virtualTile = virtualTile
+                .averagePixelCentersToGrid()
+                .scaleElevation((_b = options.multiplier) !== null && _b !== void 0 ? _b : 1)
+                .materialize(1);
+            return virtualTile;
+        });
+    }
+}
+/**
+ * Factory function to create a DemTileSource.
+ */
+function demTileSource(url, options) {
+    return new DemTileSource(url, options);
+}
 
 /**
  * Leaflet GridLayer that renders contour lines from DEM tiles.

@@ -1919,7 +1919,8 @@ class LocalDemManager {
         this.timeoutMs = options.timeoutMs;
         this.demUrlPattern = options.demUrlPattern;
         this.encoding = options.encoding;
-        this.maxzoom = options.maxzoom;
+        this.maxZoom = options.maxZoom;
+        this.tms = options.tms;
         this.decodeImage = options.decodeImage || defaultDecoder;
         this.getTile = options.getTile || defaultGetTile;
     }
@@ -1937,7 +1938,7 @@ class LocalDemManager {
     }
     fetchDem(z, x, y, options, abortController, timer) {
         return __awaiter(this, void 0, void 0, function* () {
-            const zoom = Math.min(z - (options.overzoom || 0), this.maxzoom);
+            const zoom = Math.min(z - (options.overzoom || 0), this.maxZoom);
             const subZ = z - zoom;
             const div = 1 << subZ;
             const newX = Math.floor(x / div);

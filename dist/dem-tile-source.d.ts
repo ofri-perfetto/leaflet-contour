@@ -3,13 +3,11 @@ import { Timer } from "./performance";
 import type { DemTile, Encoding, Timing, HeightTileOptions } from "./types";
 import type Actor from "./actor";
 import type WorkerDispatch from "./worker-dispatch";
-export interface DemTileSourceOptions {
+import { Point, type TileLayerOptions } from "leaflet";
+export interface DemTileSourceOptions extends TileLayerOptions {
     /** Remote DEM tile url using `{z}`, `{x}`, and `{y}` placeholders */
-    url: string;
     /** Encoding scheme for the DEM tiles */
     encoding?: Encoding;
-    /** Maximum zoom level of the DEM tiles */
-    maxzoom?: number;
     /** Number of tiles to cache (default 100) */
     cacheSize?: number;
     /** Request timeout in milliseconds (default 10000) */
@@ -28,8 +26,12 @@ export declare class DemTileSource {
     private timingCallbacks;
     readonly url: string;
     readonly encoding: Encoding;
-    readonly maxzoom: number;
-    constructor(options: DemTileSourceOptions);
+    readonly maxZoom: number;
+    readonly minZoom: number;
+    readonly tileSize: number | Point;
+    readonly zoomOffset: number;
+    readonly subdomains: string[] | undefined;
+    constructor(url: string, options: DemTileSourceOptions);
     /**
      * Wait for the manager to be ready (worker initialized).
      */
@@ -57,4 +59,4 @@ export declare class DemTileSource {
 /**
  * Factory function to create a DemTileSource.
  */
-export declare function demTileSource(options: DemTileSourceOptions): DemTileSource;
+export declare function demTileSource(url: string, options: DemTileSourceOptions): DemTileSource;

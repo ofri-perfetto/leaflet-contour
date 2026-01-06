@@ -24,7 +24,7 @@ Then to use, first create a `DemSource` and register it with maplibre:
 var demSource = new mlcontour.DemSource({
   url: "https://url/of/dem/source/{z}/{x}/{y}.png",
   encoding: "terrarium", // "mapbox" or "terrarium" default="terrarium"
-  maxzoom: 13,
+  maxZoom: 13,
   worker: true, // offload isoline computation to a web worker to reduce jank
   cacheSize: 100, // number of most-recent tiles to cache
   timeoutMs: 10_000, // timeout on fetch requests
@@ -56,7 +56,7 @@ map.addSource("contour-source", {
       buffer: 1,
     }),
   ],
-  maxzoom: 15,
+  maxZoom: 15,
 });
 ```
 
@@ -100,7 +100,7 @@ map.addSource("dem", {
   type: "raster-dem",
   encoding: "terrarium",
   tiles: [demSource.sharedDemProtocolUrl],
-  maxzoom: 13,
+  maxZoom: 13,
   tileSize: 256,
 });
 ```

@@ -11,7 +11,8 @@ export declare class LocalDemManager implements DemManager {
     contourCache: AsyncCache<string, ContourTile>;
     demUrlPattern: string;
     encoding: Encoding;
-    maxzoom: number;
+    maxZoom: number;
+    tms: boolean;
     timeoutMs: number;
     loaded: Promise<void>;
     decodeImage: DecodeImageFunction;

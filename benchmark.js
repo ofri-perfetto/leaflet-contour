@@ -30,7 +30,7 @@
     demUrlPattern: "https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png",
     cacheSize: 100,
     encoding: "terrarium",
-    maxzoom: 12,
+    maxZoom: 12,
     timeoutMs: 10_000,
   });
 
@@ -38,7 +38,7 @@
     demUrlPattern: "https://demotiles.maplibre.org/terrain-tiles/{z}/{x}/{y}.png",
     cacheSize: 100,
     encoding: "mapbox",
-    maxzoom: 11,
+    maxZoom: 11,
     timeoutMs: 10_000,
   });
   let noMoreFetch = false;

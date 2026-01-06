@@ -44,7 +44,8 @@ export class LocalDemManager implements DemManager {
   contourCache: AsyncCache<string, ContourTile>;
   demUrlPattern: string;
   encoding: Encoding;
-  maxzoom: number;
+  maxZoom: number;
+  tms:boolean;
   timeoutMs: number;
   loaded = Promise.resolve();
   decodeImage: DecodeImageFunction;
@@ -57,7 +58,8 @@ export class LocalDemManager implements DemManager {
     this.timeoutMs = options.timeoutMs;
     this.demUrlPattern = options.demUrlPattern;
     this.encoding = options.encoding;
-    this.maxzoom = options.maxzoom;
+    this.maxZoom = options.maxZoom;
+    this.tms = options.tms;
     this.decodeImage = options.decodeImage || defaultDecodeImage;
     this.getTile = options.getTile || defaultGetTile;
   }
@@ -137,7 +139,7 @@ export class LocalDemManager implements DemManager {
     abortController: AbortController,
     timer?: Timer,
   ): Promise<HeightTile> {
-    const zoom = Math.min(z - (options.overzoom || 0), this.maxzoom);
+    const zoom = Math.min(z - (options.overzoom || 0), this.maxZoom);
     const subZ = z - zoom;
     const div = 1 << subZ;
     const newX = Math.floor(x / div);

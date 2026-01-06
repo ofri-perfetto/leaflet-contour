@@ -166,8 +166,9 @@ export type DemManagerRequiredInitializationParameters = {
   demUrlPattern: string;
   cacheSize: number;
   encoding: Encoding;
-  maxzoom: number;
+  maxZoom: number;
   timeoutMs: number;
+  tms: boolean;
 };
 
 export type DemManagerInitizlizationParameters =

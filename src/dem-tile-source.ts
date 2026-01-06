@@ -11,14 +11,13 @@ import type {
 } from "./types";
 import type Actor from "./actor";
 import type WorkerDispatch from "./worker-dispatch";
+import { Browser, point, Point, type TileLayerOptions } from "leaflet";
 
-export interface DemTileSourceOptions {
+export interface DemTileSourceOptions extends TileLayerOptions {
   /** Remote DEM tile url using `{z}`, `{x}`, and `{y}` placeholders */
-  url: string;
+  // url: string;
   /** Encoding scheme for the DEM tiles */
   encoding?: Encoding;
-  /** Maximum zoom level of the DEM tiles */
-  maxzoom?: number;
   /** Number of tiles to cache (default 100) */
   cacheSize?: number;
   /** Request timeout in milliseconds (default 10000) */
@@ -38,31 +37,71 @@ export class DemTileSource {
   private timingCallbacks: Array<(timing: Timing) => void> = [];
   readonly url: string;
   readonly encoding: Encoding;
-  readonly maxzoom: number;
-
-  constructor(options: DemTileSourceOptions) {
+  readonly maxZoom: number;
+  readonly minZoom: number;
+  readonly tileSize: number | Point;
+  readonly zoomOffset: number;
+  readonly subdomains: string[] | undefined;
+  constructor(url : string, options: DemTileSourceOptions) {
     const {
-      url,
+      zoomOffset = 0,
+      minZoom = 0,
+      tileSize = 256,
       encoding = "terrarium",
-      maxzoom = 12,
+      maxZoom = 12,
       cacheSize = 100,
       timeoutMs = 10_000,
       worker = true,
       actor,
     } = options;
-
+    this.zoomOffset = zoomOffset; 
+    this.tileSize = tileSize;
     this.url = url;
     this.encoding = encoding;
-    this.maxzoom = maxzoom;
+    this.minZoom = minZoom;
+    this.maxZoom = maxZoom;
+
+// detecting retina displays, adjusting tileSize and zoom levels
+		if (options.detectRetina && Browser.retina && maxZoom > 0) {
+
+      if(this.tileSize instanceof Point){
+        this.tileSize = point(Math.floor(this.tileSize.x / 2),Math.floor(this.tileSize.y / 2))
+      } else {
+			  this.tileSize = Math.floor(this.tileSize / 2);
+      }
+
+			if (!options.zoomReverse) {
+				this.zoomOffset++;
+				this.maxZoom = Math.max(this.minZoom, this.maxZoom - 1);
+			} else {
+				this.zoomOffset--;
+				this.minZoom = Math.min(this.maxZoom, this.minZoom + 1);
+			}
+
+			this.minZoom = Math.max(0, this.minZoom);
+		} else if (!options.zoomReverse) {
+			// make sure maxZoom is gte minZoom
+			this.maxZoom = Math.max(this.minZoom, this.maxZoom);
+		} else {
+			// make sure minZoom is lte maxZoom
+			this.minZoom = Math.min(this.maxZoom, this.minZoom);
+		}
+
+		if (typeof options.subdomains === 'string') {
+			this.subdomains = options.subdomains.split('');
+		}
+
+		// this.on('tileunload', this._onTileRemove);
 
     const ManagerClass = worker ? RemoteDemManager : LocalDemManager;
     this.manager = new ManagerClass({
       demUrlPattern: url,
       cacheSize,
       encoding,
-      maxzoom,
+      maxZoom,
       timeoutMs,
       actor,
+      tms:options.tms || false
     });
   }
 
@@ -103,7 +142,7 @@ export class DemTileSource {
     options: HeightTileOptions,
     abortController: AbortController,
   ): Promise<HeightTile> {
-    const zoom = Math.min(z - (options.overzoom || 0), this.maxzoom);
+    const zoom = Math.min(z - (options.overzoom || 0), this.maxZoom);
     const subZ = z - zoom;
     const div = 1 << subZ;
     const newX = Math.floor(x / div);
@@ -182,6 +221,6 @@ export class DemTileSource {
 /**
  * Factory function to create a DemTileSource.
  */
-export function demTileSource(options: DemTileSourceOptions): DemTileSource {
-  return new DemTileSource(options);
+export function demTileSource(url : string, options: DemTileSourceOptions): DemTileSource {
+  return new DemTileSource(url, options);
 }
