@@ -1,4 +1,4 @@
-define(['./shared'], (function (actor) { 'use strict';
+import { L as LocalDemManager, p as prepareDemTile, b as prepareContourTile, A as Actor } from './shared.js';
 
 const noManager = (managerId) => Promise.reject(new Error(`No manager registered for ${managerId}`));
 /**
@@ -9,7 +9,7 @@ class WorkerDispatch {
         /** There is one worker shared between all managers in the main thread using the plugin, so need to store each of their configurations. */
         this.managers = {};
         this.init = (message, _) => {
-            this.managers[message.managerId] = new actor.L(message);
+            this.managers[message.managerId] = new LocalDemManager(message);
             return Promise.resolve();
         };
         this.fetchTile = (managerId, z, x, y, abortController, timer) => {
@@ -19,11 +19,11 @@ class WorkerDispatch {
         };
         this.fetchAndParseTile = (managerId, z, x, y, abortController, timer) => {
             var _a;
-            return actor.p(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchAndParseTile(z, x, y, abortController, timer)) || noManager(managerId), true);
+            return prepareDemTile(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchAndParseTile(z, x, y, abortController, timer)) || noManager(managerId), true);
         };
         this.fetchContourTile = (managerId, z, x, y, options, abortController, timer) => {
             var _a;
-            return actor.b(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchContourTile(z, x, y, options, abortController, timer)) || noManager(managerId));
+            return prepareContourTile(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchContourTile(z, x, y, options, abortController, timer)) || noManager(managerId));
         };
     }
 }
@@ -33,6 +33,4 @@ const g = typeof self !== "undefined"
     : typeof window !== "undefined"
         ? window
         : global;
-g.actor = new actor.A(g, new WorkerDispatch());
-
-}));
+g.actor = new Actor(g, new WorkerDispatch());

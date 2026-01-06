@@ -1,8 +1,8 @@
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-    typeof define === 'function' && define.amd ? define(factory) :
-    (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.mlcontour = factory());
-})(this, (function () { 'use strict';
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+    typeof define === 'function' && define.amd ? define(['exports'], factory) :
+    (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.mlcontour = {}));
+})(this, (function (exports) { 'use strict';
 
     /* eslint-disable */
 
@@ -38,8 +38,6 @@
       }
     }
 
-
-    define(['exports'], (function (exports) { 'use strict';
 
     /*
     Adapted from d3-contour https://github.com/d3/d3-contour
@@ -2050,7 +2048,7 @@
         }
     }
 
-    let id = 0;
+    let id$1 = 0;
     /**
      * Utility for sending messages to a remote instance of `<T>` running in a web worker
      * from the main thread, or in the main thread running from a web worker.
@@ -2116,7 +2114,7 @@
         }
         /** Invokes a method by name with a set of arguments in the remote context. */
         send(name, transferrables, abortController, timer, ...args) {
-            const thisId = ++id;
+            const thisId = ++id$1;
             const value = new Promise((resolve, reject) => {
                 this.postMessage({ id: thisId, type: "request", name, args }, transferrables);
                 this.callbacks[thisId] = (error, result, timings) => {
@@ -2135,20 +2133,6 @@
         }
     }
 
-    exports.A = Actor;
-    exports.H = HeightTile;
-    exports.L = LocalDemManager;
-    exports._ = __awaiter;
-    exports.a = decodeParsedImage;
-    exports.b = prepareContourTile;
-    exports.d = defaultDecoder;
-    exports.g = generateIsolines;
-    exports.p = prepareDemTile;
-
-    }));
-
-    define(['./shared'], (function (actor) { 'use strict';
-
     const noManager = (managerId) => Promise.reject(new Error(`No manager registered for ${managerId}`));
     /**
      * Receives messages from an actor in the web worker.
@@ -2158,7 +2142,7 @@
             /** There is one worker shared between all managers in the main thread using the plugin, so need to store each of their configurations. */
             this.managers = {};
             this.init = (message, _) => {
-                this.managers[message.managerId] = new actor.L(message);
+                this.managers[message.managerId] = new LocalDemManager(message);
                 return Promise.resolve();
             };
             this.fetchTile = (managerId, z, x, y, abortController, timer) => {
@@ -2168,11 +2152,11 @@
             };
             this.fetchAndParseTile = (managerId, z, x, y, abortController, timer) => {
                 var _a;
-                return actor.p(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchAndParseTile(z, x, y, abortController, timer)) || noManager(managerId), true);
+                return prepareDemTile(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchAndParseTile(z, x, y, abortController, timer)) || noManager(managerId), true);
             };
             this.fetchContourTile = (managerId, z, x, y, options, abortController, timer) => {
                 var _a;
-                return actor.b(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchContourTile(z, x, y, options, abortController, timer)) || noManager(managerId));
+                return prepareContourTile(((_a = this.managers[managerId]) === null || _a === void 0 ? void 0 : _a.fetchContourTile(z, x, y, options, abortController, timer)) || noManager(managerId));
             };
         }
     }
@@ -2182,11 +2166,7 @@
         : typeof window !== "undefined"
             ? window
             : global;
-    g.actor = new actor.A(g, new WorkerDispatch());
-
-    }));
-
-    define(['exports', './shared'], (function (exports, actor) { 'use strict';
+    g.actor = new Actor(g, new WorkerDispatch());
 
     const CONFIG = { workerUrl: "" };
 
@@ -2194,14 +2174,14 @@
     let id = 0;
     class MainThreadDispatch {
         constructor() {
-            this.decodeImage = (blob, encoding, abortController) => actor.p(actor.d(blob, encoding, abortController), false);
+            this.decodeImage = (blob, encoding, abortController) => prepareDemTile(defaultDecoder(blob, encoding, abortController), false);
         }
     }
     function defaultActor() {
         if (!_actor) {
             const worker = new Worker(CONFIG.workerUrl);
             const dispatch = new MainThreadDispatch();
-            _actor = new actor.A(worker, dispatch);
+            _actor = new Actor(worker, dispatch);
         }
         return _actor;
     }
@@ -2226,18 +2206,18 @@
     class DemTileSource {
         constructor(options) {
             this.timingCallbacks = [];
-            const { url, encoding = "terrarium", maxzoom = 12, cacheSize = 100, timeoutMs = 10000, worker = true, actor: actor$1, } = options;
+            const { url, encoding = "terrarium", maxzoom = 12, cacheSize = 100, timeoutMs = 10000, worker = true, actor, } = options;
             this.url = url;
             this.encoding = encoding;
             this.maxzoom = maxzoom;
-            const ManagerClass = worker ? RemoteDemManager : actor.L;
+            const ManagerClass = worker ? RemoteDemManager : LocalDemManager;
             this.manager = new ManagerClass({
                 demUrlPattern: url,
                 cacheSize,
                 encoding,
                 maxzoom,
                 timeoutMs,
-                actor: actor$1,
+                actor,
             });
         }
         /**
@@ -2256,7 +2236,7 @@
          * Fetch and parse a single DEM tile.
          */
         getDemTile(z, x, y, abortController) {
-            return actor._(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 return this.manager.fetchAndParseTile(z, x, y, abortController);
             });
         }
@@ -2265,14 +2245,14 @@
          * Supports overzoom for using lower-resolution tiles at higher zoom levels.
          */
         getHeightTile(z, x, y, options, abortController) {
-            return actor._(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 const zoom = Math.min(z - (options.overzoom || 0), this.maxzoom);
                 const subZ = z - zoom;
                 const div = 1 << subZ;
                 const newX = Math.floor(x / div);
                 const newY = Math.floor(y / div);
                 const tile = yield this.manager.fetchAndParseTile(zoom, newX, newY, abortController);
-                return actor.H.fromRawDem(tile).split(subZ, x % div, y % div);
+                return HeightTile.fromRawDem(tile).split(subZ, x % div, y % div);
             });
         }
         /**
@@ -2281,7 +2261,7 @@
          * with its neighbors to avoid edge artifacts.
          */
         getHeightTileWithNeighbors(z, x, y, options, abortController, timer) {
-            return actor._(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 var _a, _b;
                 const max = 1 << z;
                 const neighborPromises = [];
@@ -2295,7 +2275,7 @@
                     }
                 }
                 const neighbors = yield Promise.all(neighborPromises);
-                let virtualTile = actor.H.combineNeighbors(neighbors);
+                let virtualTile = HeightTile.combineNeighbors(neighbors);
                 if (!virtualTile) {
                     return undefined;
                 }
@@ -16888,7 +16868,7 @@
             return canvas;
         }
         renderTile(x, y, z, ctx, canvas, abortController, done) {
-            return actor._(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 const { interval = 10, majorInterval = interval * 5, minorColor = "#666", majorColor = "#333", minorWidth = 0.5, majorWidth = 1.5, multiplier = 1, overzoom = 0, subsampleBelow = 100, } = this.layerOptions;
                 try {
                     // Get HeightTile with neighbors for seamless contours
@@ -16901,7 +16881,7 @@
                         return;
                     }
                     // Generate isolines at the minor interval
-                    const isolines = actor.g(interval, heightTile, canvas.width, 1);
+                    const isolines = generateIsolines(interval, heightTile, canvas.width, 1);
                     // Draw the contours
                     this.drawContours(ctx, isolines, canvas.width, heightTile.width, interval, majorInterval, minorColor, majorColor, minorWidth, majorWidth);
                     done(undefined, canvas);
@@ -17029,7 +17009,7 @@
             return canvas;
         }
         renderTile(x, y, z, ctx, canvas, abortController, done) {
-            return actor._(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 const { azimuth = 315, altitude = 45, exaggeration = 1, } = this.layerOptions;
                 try {
                     // Fetch DEM tile
@@ -17038,7 +17018,7 @@
                         return;
                     }
                     // Convert to HeightTile for easy access
-                    const heightTile = actor.H.fromRawDem(demTile);
+                    const heightTile = HeightTile.fromRawDem(demTile);
                     // Calculate hillshade and render
                     const imageData = this.calculateHillshade(heightTile, canvas.width, canvas.height, z, azimuth, altitude, exaggeration);
                     ctx.putImageData(imageData, 0, 0);
@@ -17168,7 +17148,7 @@
             return canvas;
         }
         renderTile(x, y, z, ctx, canvas, abortController, done) {
-            return actor._(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 const { interval = 100, font = "Arial, sans-serif", fontSize = 10, fontColor = "#333", haloColor = "white", haloWidth = 2, multiplier = 1, formatter = (e) => String(Math.round(e)), minLabelSpacing = 100, overzoom = 0, subsampleBelow = 100, } = this.layerOptions;
                 try {
                     // Get HeightTile with neighbors for seamless contours
@@ -17181,7 +17161,7 @@
                         return;
                     }
                     // Generate isolines at the label interval
-                    const isolines = actor.g(interval, heightTile, canvas.width, 1);
+                    const isolines = generateIsolines(interval, heightTile, canvas.width, 1);
                     // Find label positions along contour lines
                     const labels = this.findLabelPositions(isolines, canvas.width, heightTile.width, interval, minLabelSpacing);
                     // Draw labels
@@ -17325,26 +17305,29 @@
     };
     const getWorkerUrl = () => CONFIG.workerUrl;
 
-    exports.HeightTile = actor.H;
-    exports.LocalDemManager = actor.L;
-    exports.decodeParsedImage = actor.a;
+    /* eslint-disable no-undef */
+
+    exports.A = Actor;
     exports.ContourLabelLayer = ContourLabelLayer;
     exports.ContourLayer = ContourLayer;
     exports.DemTileSource = DemTileSource;
+    exports.H = HeightTile;
+    exports.HeightTile = HeightTile;
     exports.HillshadeLayer = HillshadeLayer;
+    exports.L = LocalDemManager;
+    exports.LocalDemManager = LocalDemManager;
+    exports._ = __awaiter;
+    exports.a = decodeParsedImage;
+    exports.b = prepareContourTile;
     exports.contourLabelLayer = contourLabelLayer;
     exports.contourLayer = contourLayer;
+    exports.d = defaultDecoder;
+    exports.decodeParsedImage = decodeParsedImage;
     exports.demTileSource = demTileSource;
+    exports.g = generateIsolines;
     exports.getWorkerUrl = getWorkerUrl;
     exports.hillshadeLayer = hillshadeLayer;
+    exports.p = prepareDemTile;
     exports.setWorkerUrl = setWorkerUrl;
-
-    }));
-
-    /* eslint-disable no-undef */
-
-    var mlcontour$1 = mlcontour;
-
-    return mlcontour$1;
 
 }));

@@ -1,6 +1,4 @@
 /* eslint-disable no-undef */
-import "../dist/staging/shared";
-import "../dist/staging/worker";
-import "../dist/staging/index";
-
-export default mlcontour;
+export * from "../dist/staging/shared";
+export * from "../dist/staging/worker";
+export * from "../dist/staging/index";

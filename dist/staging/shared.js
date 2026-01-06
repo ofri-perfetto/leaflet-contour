@@ -1,5 +1,3 @@
-define(['exports'], (function (exports) { 'use strict';
-
 /*
 Adapted from d3-contour https://github.com/d3/d3-contour
 
@@ -2094,14 +2092,4 @@ class Actor {
     }
 }
 
-exports.A = Actor;
-exports.H = HeightTile;
-exports.L = LocalDemManager;
-exports._ = __awaiter;
-exports.a = decodeParsedImage;
-exports.b = prepareContourTile;
-exports.d = defaultDecoder;
-exports.g = generateIsolines;
-exports.p = prepareDemTile;
-
-}));
+export { Actor as A, HeightTile as H, LocalDemManager as L, __awaiter as _, decodeParsedImage as a, prepareContourTile as b, defaultDecoder as d, generateIsolines as g, prepareDemTile as p };

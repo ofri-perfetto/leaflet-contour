@@ -27,7 +27,7 @@ export default [
     input: ["src/index.ts", "src/worker.ts"],
     output: {
       dir: "dist/staging",
-      format: "amd",
+      format: "esm",
       indent: false,
       chunkFileNames: "shared.js",
       minifyInternalExports: true,
