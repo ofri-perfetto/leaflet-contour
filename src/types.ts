@@ -3,7 +3,7 @@ import type { Timer } from "./performance";
 import type WorkerDispatch from "./worker-dispatch";
 
 /** Scheme used to map pixel rgb values elevations. */
-export type Encoding = "terrarium" | "mapbox";
+export type Encoding = "terrarium" | "mapbox" | "raw16" | "raw32";
 export interface IsTransferrable {
   transferrables: Transferable[];
 }
@@ -36,7 +36,7 @@ export interface HeightTileOptions {
 }
 
 export interface FetchResponse {
-  data: Blob;
+  data: Uint8Array;
   expires?: string;
   cacheControl?: string;
 }
@@ -157,7 +157,7 @@ export type GetTileFunction = (
 ) => Promise<FetchResponse>;
 
 export type DecodeImageFunction = (
-  blob: Blob,
+  data: Uint8Array,
   encoding: Encoding,
   abortController: AbortController,
 ) => Promise<DemTile>;

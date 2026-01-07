@@ -19,10 +19,10 @@ let id = 0;
 
 export class MainThreadDispatch {
   decodeImage = (
-    blob: Blob,
+    data: Uint8Array<ArrayBufferLike>,
     encoding: Encoding,
     abortController: AbortController,
-  ) => prepareDemTile(decodeImage(blob, encoding, abortController), false);
+  ) => prepareDemTile(decodeImage(data, encoding, abortController), false);
 }
 
 function defaultActor(): Actor<WorkerDispatch> {

@@ -1,4 +1,4 @@
-import { A as Actor, p as prepareDemTile, d as defaultDecoder, L as LocalDemManager, _ as __awaiter, H as HeightTile, g as generateIsolines } from './shared.js';
+import { A as Actor, p as prepareDemTile, d as decodeImage, L as LocalDemManager, _ as __awaiter, H as HeightTile, g as generateIsolines } from './shared.js';
 export { a as decodeParsedImage } from './shared.js';
 
 const CONFIG = { workerUrl: "" };
@@ -7,7 +7,7 @@ let _actor;
 let id = 0;
 class MainThreadDispatch {
     constructor() {
-        this.decodeImage = (blob, encoding, abortController) => prepareDemTile(defaultDecoder(blob, encoding, abortController), false);
+        this.decodeImage = (data, encoding, abortController) => prepareDemTile(decodeImage(data, encoding, abortController), false);
     }
 }
 function defaultActor() {

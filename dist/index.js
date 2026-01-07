@@ -476,6 +476,86 @@
     let canvas;
     let canvasContext;
     /**
+     * Decodes raw elevation data from a Uint8Array.
+     * Supports multiple encoding formats:
+     * - "terrarium": RGB encoded as r*256 + g + b/256 - 32768
+     * - "mapbox": RGB encoded as -10000 + (r*256*256 + g*256 + b) * 0.1
+     * - "raw16": Raw 16-bit little-endian elevation values (2 bytes per pixel)
+     * - "raw32": Raw 32-bit little-endian float elevation values (4 bytes per pixel)
+     */
+    function decodeImage(data, encoding, abortController) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (isAborted(abortController))
+                return null;
+            // Handle raw elevation data formats
+            if (encoding === "raw16") {
+                return decodeRaw16(data);
+            }
+            if (encoding === "raw32") {
+                return decodeRaw32(data);
+            }
+            // For terrarium/mapbox, the data is PNG image bytes - decode as image
+            // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+            const buffer = new ArrayBuffer(data.byteLength);
+            new Uint8Array(buffer).set(data);
+            const blob = new Blob([buffer], { type: "image/png" });
+            return decodeImageFromBlob(blob, encoding, abortController);
+        });
+    }
+    /**
+     * Decode raw 16-bit little-endian elevation data.
+     * First 4 bytes are width (uint16) and height (uint16), rest is elevation data.
+     */
+    function decodeRaw16(data) {
+        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        // Read header: width and height as 16-bit unsigned integers
+        const width = view.getUint16(0, true); // little-endian
+        const height = view.getUint16(2, true);
+        const elevations = new Float32Array(width * height);
+        const headerSize = 4;
+        for (let i = 0; i < width * height; i++) {
+            // Read as signed 16-bit integer (elevation in meters or decimeters)
+            elevations[i] = view.getInt16(headerSize + i * 2, true);
+        }
+        return { width, height, data: elevations };
+    }
+    /**
+     * Decode raw 32-bit little-endian float elevation data.
+     * First 4 bytes are width (uint16) and height (uint16), rest is elevation data.
+     */
+    function decodeRaw32(data) {
+        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        // Read header: width and height as 16-bit unsigned integers
+        const width = view.getUint16(0, true);
+        const height = view.getUint16(2, true);
+        const elevations = new Float32Array(width * height);
+        const headerSize = 4;
+        for (let i = 0; i < width * height; i++) {
+            elevations[i] = view.getFloat32(headerSize + i * 4, true);
+        }
+        return { width, height, data: elevations };
+    }
+    /**
+     * Parses a `raster-dem` image blob into a DemTile.
+     * Uses the best available method based on browser capabilities.
+     */
+    function decodeImageFromBlob(blob, encoding, abortController) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (shouldUseVideoFrame()) {
+                return decodeImageVideoFrame(blob, encoding, abortController);
+            }
+            else if (offscreenCanvasSupported()) {
+                return decodeImageModern(blob, encoding, abortController);
+            }
+            else if (isWorker()) {
+                return decodeImageOnMainThread(blob, encoding, abortController);
+            }
+            else {
+                return decodeImageOld(blob, encoding, abortController);
+            }
+        });
+    }
+    /**
      * Parses a `raster-dem` image into a DemTile using Webcoded VideoFrame API.
      */
     function decodeImageModern(blob, encoding, abortController) {
@@ -568,7 +648,11 @@
      * by running decodeImageOld on the main thread and returning the result.
      */
     function decodeImageOnMainThread(blob, encoding, abortController) {
-        return self.actor.send("decodeImage", [], abortController, undefined, blob, encoding);
+        // Convert blob back to Uint8Array for transfer
+        return blob.arrayBuffer().then((buffer) => {
+            const data = new Uint8Array(buffer);
+            return self.actor.send("decodeImage", [], abortController, undefined, data, encoding);
+        });
     }
     function isWorker() {
         return (
@@ -578,13 +662,6 @@
             // @ts-expect-error WorkerGlobalScope defined
             self instanceof WorkerGlobalScope);
     }
-    const defaultDecoder = shouldUseVideoFrame()
-        ? decodeImageVideoFrame
-        : offscreenCanvasSupported()
-            ? decodeImageModern
-            : isWorker()
-                ? decodeImageOnMainThread
-                : decodeImageOld;
     function getElevations(img, encoding, canvas, canvasContext) {
         canvas.width = img.width;
         canvas.height = img.height;
@@ -1918,13 +1995,14 @@
     const defaultGetTile = (url, abortController) => __awaiter(void 0, void 0, void 0, function* () {
         const options = {
             signal: abortController.signal,
+            mode: 'no-cors'
         };
         const response = yield fetch(url, options);
         if (!response.ok) {
             throw new Error(`Bad response: ${response.status} for ${url}`);
         }
         return {
-            data: yield response.blob(),
+            data: yield response.bytes(),
             expires: response.headers.get("expires") || undefined,
             cacheControl: response.headers.get("cache-control") || undefined,
         };
@@ -1961,7 +2039,7 @@
             this.tms = options.tms;
             this.subdomains = options.subdomains || ["a", "b", "c"];
             this.zoomOffset = options.zoomOffset || 0;
-            this.decodeImage = options.decodeImage || defaultDecoder;
+            this.decodeImage = options.decodeImage || decodeImage;
             this.getTile = options.getTile || defaultGetTile;
         }
         /**
@@ -2188,7 +2266,7 @@
     let id = 0;
     class MainThreadDispatch {
         constructor() {
-            this.decodeImage = (blob, encoding, abortController) => prepareDemTile(defaultDecoder(blob, encoding, abortController), false);
+            this.decodeImage = (data, encoding, abortController) => prepareDemTile(decodeImage(data, encoding, abortController), false);
         }
     }
     function defaultActor() {
@@ -17371,7 +17449,7 @@
     exports.b = prepareContourTile;
     exports.contourLabelLayer = contourLabelLayer;
     exports.contourLayer = contourLayer;
-    exports.d = defaultDecoder;
+    exports.d = decodeImage;
     exports.decodeParsedImage = decodeParsedImage;
     exports.demTileSource = demTileSource;
     exports.g = generateIsolines;

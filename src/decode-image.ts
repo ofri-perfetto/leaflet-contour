@@ -14,6 +14,100 @@ let canvas: HTMLCanvasElement;
 let canvasContext: CanvasRenderingContext2D | null;
 
 /**
+ * Decodes raw elevation data from a Uint8Array.
+ * Supports multiple encoding formats:
+ * - "terrarium": RGB encoded as r*256 + g + b/256 - 32768
+ * - "mapbox": RGB encoded as -10000 + (r*256*256 + g*256 + b) * 0.1
+ * - "raw16": Raw 16-bit little-endian elevation values (2 bytes per pixel)
+ * - "raw32": Raw 32-bit little-endian float elevation values (4 bytes per pixel)
+ */
+export default async function decodeImage(
+  data: Uint8Array,
+  encoding: Encoding,
+  abortController: AbortController,
+): Promise<DemTile> {
+  if (isAborted(abortController)) return null as any as DemTile;
+
+  // Handle raw elevation data formats
+  if (encoding === "raw16") {
+    return decodeRaw16(data);
+  }
+  if (encoding === "raw32") {
+    return decodeRaw32(data);
+  }
+
+  // For terrarium/mapbox, the data is PNG image bytes - decode as image
+  // Create a new ArrayBuffer to avoid SharedArrayBuffer issues
+  const buffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(buffer).set(data);
+  const blob = new Blob([buffer], { type: "image/png" });
+  return decodeImageFromBlob(blob, encoding, abortController);
+}
+
+/**
+ * Decode raw 16-bit little-endian elevation data.
+ * First 4 bytes are width (uint16) and height (uint16), rest is elevation data.
+ */
+function decodeRaw16(data: Uint8Array): DemTile {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+  // Read header: width and height as 16-bit unsigned integers
+  const width = view.getUint16(0, true); // little-endian
+  const height = view.getUint16(2, true);
+
+  const elevations = new Float32Array(width * height);
+  const headerSize = 4;
+
+  for (let i = 0; i < width * height; i++) {
+    // Read as signed 16-bit integer (elevation in meters or decimeters)
+    elevations[i] = view.getInt16(headerSize + i * 2, true);
+  }
+
+  return { width, height, data: elevations };
+}
+
+/**
+ * Decode raw 32-bit little-endian float elevation data.
+ * First 4 bytes are width (uint16) and height (uint16), rest is elevation data.
+ */
+function decodeRaw32(data: Uint8Array): DemTile {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+  // Read header: width and height as 16-bit unsigned integers
+  const width = view.getUint16(0, true);
+  const height = view.getUint16(2, true);
+
+  const elevations = new Float32Array(width * height);
+  const headerSize = 4;
+
+  for (let i = 0; i < width * height; i++) {
+    elevations[i] = view.getFloat32(headerSize + i * 4, true);
+  }
+
+  return { width, height, data: elevations };
+}
+
+/**
+ * Parses a `raster-dem` image blob into a DemTile.
+ * Uses the best available method based on browser capabilities.
+ */
+async function decodeImageFromBlob(
+  blob: Blob,
+  encoding: Encoding,
+  abortController: AbortController,
+): Promise<DemTile> {
+  if (shouldUseVideoFrame()) {
+    return decodeImageVideoFrame(blob, encoding, abortController);
+  } else if (offscreenCanvasSupported()) {
+    return decodeImageModern(blob, encoding, abortController);
+  } else if (isWorker()) {
+    return decodeImageOnMainThread(blob, encoding, abortController);
+  } else {
+    return decodeImageOld(blob, encoding, abortController);
+  }
+}
+
+/**
  * Parses a `raster-dem` image into a DemTile using Webcoded VideoFrame API.
  */
 async function decodeImageModern(
@@ -121,14 +215,18 @@ function decodeImageOnMainThread(
   encoding: Encoding,
   abortController: AbortController,
 ): Promise<DemTile> {
-  return ((self as any).actor as Actor<MainThreadDispatch>).send(
-    "decodeImage",
-    [],
-    abortController,
-    undefined,
-    blob,
-    encoding,
-  );
+  // Convert blob back to Uint8Array for transfer
+  return blob.arrayBuffer().then((buffer) => {
+    const data = new Uint8Array(buffer);
+    return ((self as any).actor as Actor<MainThreadDispatch>).send(
+      "decodeImage",
+      [],
+      abortController,
+      undefined,
+      data,
+      encoding,
+    );
+  });
 }
 
 function isWorker(): boolean {
@@ -140,20 +238,6 @@ function isWorker(): boolean {
     self instanceof WorkerGlobalScope
   );
 }
-
-const defaultDecoder: (
-  blob: Blob,
-  encoding: Encoding,
-  abortController: AbortController,
-) => Promise<DemTile> = shouldUseVideoFrame()
-  ? decodeImageVideoFrame
-  : offscreenCanvasSupported()
-    ? decodeImageModern
-    : isWorker()
-      ? decodeImageOnMainThread
-      : decodeImageOld;
-
-export default defaultDecoder;
 
 function getElevations(
   img: ImageBitmap | HTMLImageElement,

@@ -3,7 +3,7 @@ import type WorkerDispatch from "./worker-dispatch";
 import { Timer } from "./performance";
 import type { ContourTile, DemManager, DemManagerInitizlizationParameters, DemTile, Encoding, FetchResponse, IndividualContourTileOptions } from "./types";
 export declare class MainThreadDispatch {
-    decodeImage: (blob: Blob, encoding: Encoding, abortController: AbortController) => Promise<import("./types").TransferrableDemTile>;
+    decodeImage: (data: Uint8Array<ArrayBufferLike>, encoding: Encoding, abortController: AbortController) => Promise<import("./types").TransferrableDemTile>;
 }
 /**
  * Caches, decodes, and processes raster tiles in a shared web worker.

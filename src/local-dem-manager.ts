@@ -1,5 +1,5 @@
 import AsyncCache from "./cache";
-import defaultDecodeImage from "./decode-image";
+import decodeImage from "./decode-image"; "./decode-image";
 import { HeightTile } from "./height-tile";
 import generateIsolines from "./isolines";
 import { encodeIndividualOptions, isAborted, withTimeout } from "./utils";
@@ -23,13 +23,14 @@ const defaultGetTile: GetTileFunction = async (
 ) => {
   const options: RequestInit = {
     signal: abortController.signal,
+    mode: 'no-cors' 
   };
   const response = await fetch(url, options);
   if (!response.ok) {
     throw new Error(`Bad response: ${response.status} for ${url}`);
   }
   return {
-    data: await response.blob(),
+    data: await response.bytes(),
     expires: response.headers.get("expires") || undefined,
     cacheControl: response.headers.get("cache-control") || undefined,
   };
@@ -64,7 +65,7 @@ export class LocalDemManager implements DemManager {
     this.tms = options.tms;
     this.subdomains = options.subdomains || ["a", "b", "c"];
     this.zoomOffset = options.zoomOffset || 0;
-    this.decodeImage = options.decodeImage || defaultDecodeImage;
+    this.decodeImage = options.decodeImage || decodeImage;
     this.getTile = options.getTile || defaultGetTile;
   }
 

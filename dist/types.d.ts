@@ -2,7 +2,7 @@ import type Actor from "./actor";
 import type { Timer } from "./performance";
 import type WorkerDispatch from "./worker-dispatch";
 /** Scheme used to map pixel rgb values elevations. */
-export type Encoding = "terrarium" | "mapbox";
+export type Encoding = "terrarium" | "mapbox" | "raw16" | "raw32";
 export interface IsTransferrable {
     transferrables: Transferable[];
 }
@@ -32,7 +32,7 @@ export interface HeightTileOptions {
     subsampleBelow?: number;
 }
 export interface FetchResponse {
-    data: Blob;
+    data: Uint8Array;
     expires?: string;
     cacheControl?: string;
 }
@@ -123,7 +123,7 @@ export interface DemManager {
     fetchContourTile(z: number, x: number, y: number, options: IndividualContourTileOptions, abortController: AbortController, timer?: Timer): Promise<ContourTile>;
 }
 export type GetTileFunction = (url: string, abortController: AbortController) => Promise<FetchResponse>;
-export type DecodeImageFunction = (blob: Blob, encoding: Encoding, abortController: AbortController) => Promise<DemTile>;
+export type DecodeImageFunction = (data: Uint8Array, encoding: Encoding, abortController: AbortController) => Promise<DemTile>;
 export type DemManagerRequiredInitializationParameters = {
     /** URL pattern with {z}, {x}, {y} placeholders, and optionally {s} for subdomains */
     demUrlPattern: string;
